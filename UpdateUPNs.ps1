@@ -1,3 +1,6 @@
+# Enable Windows Forms for file dialog
+Add-Type -AssemblyName System.Windows.Forms
+
 # Ensure Microsoft Graph modules are installed
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Users)) {
     Install-Module Microsoft.Graph -Scope CurrentUser -Force
@@ -7,8 +10,20 @@ Import-Module Microsoft.Graph.Users
 # Connect to Microsoft Graph
 Connect-MgGraph -Scopes "User.ReadWrite.All", "Directory.AccessAsUser.All"
 
-# Prompt for CSV and new domain
-$csvPath = Read-Host "Enter path to CSV file (e.g., C:\users.csv)"
+# Open File Explorer to pick the CSV file
+$openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+$openFileDialog.Title = "Select CSV File"
+$openFileDialog.Filter = "CSV files (*.csv)|*.csv"
+$openFileDialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+
+$csvPath = if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+    $openFileDialog.FileName
+} else {
+    Write-Host "No file selected. Exiting..." -ForegroundColor Red
+    exit
+}
+
+# Prompt for new domain
 $newDomain = Read-Host "Enter the new domain (e.g., newdomain.com)"
 
 # Ask if the script should run in WhatIf mode
@@ -16,7 +31,7 @@ $whatIf = Read-Host "Run in WhatIf mode? (Y/N)"
 $confirmChanges = $whatIf -ne 'Y'
 
 if (-not $confirmChanges) {
-    Write-Host "`nRunning in WHAT-IF mode. No changes will be made." -ForegroundColor Yellow
+    Write-Host "Running in WHAT-IF mode. No changes will be made." -ForegroundColor Yellow
 }
 
 # Read CSV
@@ -50,7 +65,7 @@ foreach ($user in $users) {
             }
 
             if (-not $confirmChanges) {
-                Write-Host "`n--- WHAT-IF: $oldEmail ---" -ForegroundColor Cyan
+                Write-Host "--- WHAT-IF: $oldEmail ---" -ForegroundColor Cyan
                 Write-Host "Current UPN:   $($aadUser.UserPrincipalName)"
                 Write-Host "New UPN:       $newUPN"
                 Write-Host "Add alias:     $aliasToAdd"
